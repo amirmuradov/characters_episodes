@@ -39,15 +39,17 @@ class _CharactersPageState extends State<CharactersPage> {
     if (_scrollController.position.pixels ==
         _scrollController.position.maxScrollExtent) {
       if (!isFetching && !isAllHeroesLoaded) {
-        nextPage++;
         fetchCharacters();
-        isFetching = true;
       }
     }
   }
 
   Future<void> fetchCharacters() async {
     if (isFetching || isAllHeroesLoaded) return;
+
+    setState(() {
+      isFetching = true;
+    });
 
     try {
       final List<dynamic> fetchedHeroes = await _fetchHeroes(nextPage);
@@ -60,9 +62,14 @@ class _CharactersPageState extends State<CharactersPage> {
       }
     } catch (error) {
       print('Failed to fetch characters: $error');
+      setState(() {
+        isSnackbarDisplayed = true;
+      });
     }
 
-    isFetching = false;
+    setState(() {
+      isFetching = false;
+    });
   }
 
   Future<List<dynamic>> _fetchHeroes(int page) async {
@@ -107,26 +114,42 @@ class _CharactersPageState extends State<CharactersPage> {
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              itemCount: heroes.length,
+              itemCount: heroes.length + 1,
               itemBuilder: (context, index) {
-                final hero = heroes[index];
-                String name = hero['name'];
-                String species = hero['species'];
-                String image = hero['image'];
+                if (index < heroes.length) {
+                  final hero = heroes[index];
+                  String name = hero['name'];
+                  String species = hero['species'];
+                  String image = hero['image'];
 
-                if (_searchQuery.isNotEmpty &&
-                    !name.toLowerCase().contains(_searchQuery.toLowerCase())) {
-                  return const SizedBox();
+                  if (_searchQuery.isNotEmpty &&
+                      !name
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase())) {
+                    return SizedBox();
+                  }
+
+                  return ListTile(
+                    title: Text(name),
+                    subtitle: Text(species),
+                    leading: Image.network(image),
+                    onTap: () {
+                      navigateToHeroDetails(context, hero);
+                    },
+                  );
+                } else {
+                  if (isFetching) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  } else if (isAllHeroesLoaded && heroes.isEmpty) {
+                    return Center(
+                      child: Text('No characters found.'),
+                    );
+                  } else {
+                    return SizedBox();
+                  }
                 }
-
-                return ListTile(
-                  title: Text(name),
-                  subtitle: Text(species),
-                  leading: Image.network(image),
-                  onTap: () {
-                    navigateToHeroDetails(context, hero);
-                  },
-                );
               },
             ),
           ),
